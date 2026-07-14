@@ -48,7 +48,16 @@ export default function Auth() {
       if (error) throw error;
       showToast('Logged in successfully!', 'success');
     } catch (err) {
-      showToast(err.message || 'Invalid credentials', 'error');
+      const msg = err.message || '';
+      if (msg.includes('Invalid login credentials')) {
+        showToast('Email atau password salah', 'error');
+      } else if (msg.includes('Email not confirmed')) {
+        showToast('Email belum dikonfirmasi. Cek inbox/spam email Anda', 'error');
+      } else if (msg.includes('Invalid API key')) {
+        showToast('Koneksi ke server gagal. Cek konfigurasi Supabase', 'error');
+      } else {
+        showToast(msg || 'Gagal masuk. Coba lagi', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -59,11 +68,18 @@ export default function Auth() {
       setLoading(true);
       const { error } = await signUp(data.email, data.password, data.fullName);
       if (error) throw error;
-      showToast('Account created! Check your email or try logging in.', 'success');
+      showToast('Akun berhasil dibuat! Cek email Anda untuk konfirmasi', 'success');
       setIsSignUp(false);
       resetLoginForm();
     } catch (err) {
-      showToast(err.message || 'Sign up failed', 'error');
+      const msg = err.message || '';
+      if (msg.includes('already registered')) {
+        showToast('Email sudah terdaftar. Gunakan email lain atau masuk', 'error');
+      } else if (msg.includes('Invalid API key')) {
+        showToast('Koneksi ke server gagal. Cek konfigurasi Supabase', 'error');
+      } else {
+        showToast(msg || 'Gagal daftar. Coba lagi', 'error');
+      }
     } finally {
       setLoading(false);
     }

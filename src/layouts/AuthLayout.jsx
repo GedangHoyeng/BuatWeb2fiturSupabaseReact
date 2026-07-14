@@ -1,6 +1,7 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { HardDrive } from 'lucide-react';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AuthLayout() {
   const { user, loading } = useAuth();
@@ -23,7 +24,9 @@ export default function AuthLayout() {
               SupaFlow
             </span>
           </div>
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </div>
 

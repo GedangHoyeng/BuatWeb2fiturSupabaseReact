@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Loader2 } from 'lucide-react';
+import ErrorBoundary from './ErrorBoundary';
 
 export default function ProtectedRoute() {
   const { user, loading } = useAuth();
@@ -22,5 +23,9 @@ export default function ProtectedRoute() {
     return <Navigate to="/auth" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <ErrorBoundary>
+      <Outlet />
+    </ErrorBoundary>
+  );
 }

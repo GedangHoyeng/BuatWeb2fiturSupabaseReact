@@ -32,7 +32,8 @@ import {
   Clock,
   ExternalLink,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 
 const taskSchema = z.object({
@@ -47,7 +48,7 @@ const taskSchema = z.object({
 export default function Dashboard() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   // State
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'

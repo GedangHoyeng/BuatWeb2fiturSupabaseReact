@@ -5,17 +5,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, User, UserCheck, Shield } from 'lucide-react';
-
 const profileSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
   role: z.string().min(2, 'Role description must be at least 2 characters'),
 });
-
 export default function Profile() {
   const { user, profile, updateProfile } = useAuth();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
-
   const {
     register,
     handleSubmit,
@@ -27,7 +24,6 @@ export default function Profile() {
       role: profile?.role || 'Member',
     },
   });
-
   const onSubmit = async (data) => {
     try {
       setLoading(true);
@@ -42,14 +38,12 @@ export default function Profile() {
       setLoading(false);
     }
   };
-
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="space-y-1.5">
         <h1 className="text-2xl font-bold tracking-tight">Your Profile</h1>
         <p className="text-sm text-muted-foreground">Manage your public account details and roles.</p>
       </div>
-
       <div className="p-6 rounded-2xl glass-card space-y-6 border border-border/40">
         {/* Header avatar preview */}
         <div className="flex items-center gap-4">
@@ -61,7 +55,6 @@ export default function Profile() {
             <p className="text-xs text-muted-foreground">{user?.email}</p>
           </div>
         </div>
-
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Full Name</label>
@@ -77,7 +70,6 @@ export default function Profile() {
             </div>
             {errors.fullName && <p className="text-xs text-rose-500 mt-1">{errors.fullName.message}</p>}
           </div>
-
           <div>
             <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Role / Title</label>
             <div className="relative">
@@ -93,7 +85,6 @@ export default function Profile() {
             </div>
             {errors.role && <p className="text-xs text-rose-500 mt-1">{errors.role.message}</p>}
           </div>
-
           <button
             type="submit"
             disabled={loading}
