@@ -258,7 +258,7 @@ export default function Dashboard() {
   // --- RENDERING ROOT VIEW (ALL PROJECTS LIST) ---
   if (!projectId) {
     return (
-      <>
+      <div className="space-y-8">
         {/* Welcome Section */}
         <div className="p-8 rounded-2xl glass-panel relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
@@ -379,7 +379,7 @@ export default function Dashboard() {
           </div>
         </form>
       </Dialog>
-    </>
+    </div>
   );
 }
 
