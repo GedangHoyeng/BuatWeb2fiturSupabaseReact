@@ -7,7 +7,9 @@ import {
   useUpdateTask,
   useDeleteTask,
   useMembers,
-  useProjects
+  useProjects,
+  useCreateProject,
+  useDeleteProject
 } from '../hooks/useTasks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,6 +47,11 @@ const taskSchema = z.object({
   assignee_id: z.string().optional().nullable(),
 });
 
+const projectSchema = z.object({
+  name: z.string().min(3, 'Project name must be at least 3 characters'),
+  description: z.string().optional(),
+});
+
 export default function Dashboard() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -52,6 +59,7 @@ export default function Dashboard() {
 
   // State
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -73,20 +81,32 @@ export default function Dashboard() {
   const createTaskMutation = useCreateTask(projectId);
   const updateTaskMutation = useUpdateTask(projectId);
   const deleteTaskMutation = useDeleteTask(projectId);
+  const createProjectMutation = useCreateProject();
+  const deleteProjectMutation = useDeleteProject();
 
-  // Form setup
+  // Task form setup
   const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    formState: { errors },
+    register: taskRegister,
+    handleSubmit: handleTaskSubmit,
+    reset: resetTask,
+    setValue: setTaskValue,
+    formState: { errors: taskErrors },
   } = useForm({
     resolver: zodResolver(taskSchema),
     defaultValues: {
       status: 'todo',
       priority: 'medium',
     },
+  });
+
+  // Project form setup
+  const {
+    register: projectRegister,
+    handleSubmit: handleProjectSubmit,
+    reset: resetProject,
+    formState: { errors: projectErrors },
+  } = useForm({
+    resolver: zodResolver(projectSchema),
   });
 
   // Fetch current project info
@@ -164,12 +184,12 @@ export default function Dashboard() {
 
   const handleOpenEdit = (task) => {
     setEditingTask(task);
-    setValue('title', task.title);
-    setValue('description', task.description || '');
-    setValue('status', task.status);
-    setValue('priority', task.priority);
-    setValue('due_date', task.due_date || '');
-    setValue('assignee_id', task.assignee_id || '');
+    setTaskValue('title', task.title);
+    setTaskValue('description', task.description || '');
+    setTaskValue('status', task.status);
+    setTaskValue('priority', task.priority);
+    setTaskValue('due_date', task.due_date || '');
+    setTaskValue('assignee_id', task.assignee_id || '');
   };
 
   const handleCreateTaskSubmit = (data) => {
@@ -182,7 +202,7 @@ export default function Dashboard() {
       {
         onSuccess: () => {
           setIsNewTaskOpen(false);
-          reset();
+          resetTask();
         },
       }
     );
@@ -198,7 +218,24 @@ export default function Dashboard() {
       {
         onSuccess: () => {
           setEditingTask(null);
-          reset();
+          resetTask();
+        },
+      }
+    );
+  };
+
+  const handleCreateProjectSubmit = (data) => {
+    createProjectMutation.mutate(
+      {
+        name: data.name,
+        description: data.description,
+        ownerId: user.id,
+      },
+      {
+        onSuccess: (newProj) => {
+          setIsNewProjectOpen(false);
+          resetProject();
+          navigate(`/project/${newProj.id}`);
         },
       }
     );
@@ -221,7 +258,7 @@ export default function Dashboard() {
   // --- RENDERING ROOT VIEW (ALL PROJECTS LIST) ---
   if (!projectId) {
     return (
-      <div className="space-y-8">
+      <>
         {/* Welcome Section */}
         <div className="p-8 rounded-2xl glass-panel relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
@@ -240,10 +277,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold tracking-tight">Your Projects</h2>
             <button
-              onClick={() => {
-                const sidebarPlusBtn = document.querySelector('[title="Create Project"]');
-                if (sidebarPlusBtn) sidebarPlusBtn.click();
-              }}
+              onClick={() => setIsNewProjectOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-semibold text-sm rounded-xl hover:opacity-90 transition-opacity"
             >
               <FolderPlus className="w-4 h-4" />
@@ -269,9 +303,24 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center justify-between border-t border-border/40 pt-4 mt-4 text-xs text-muted-foreground">
                     <span>Created: {new Date(project.created_at).toLocaleDateString()}</span>
-                    <span className="flex items-center gap-1 group-hover:text-primary transition-colors">
-                      Open Dashboard <ExternalLink className="w-3.5 h-3.5" />
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (window.confirm(`Delete project "${project.name}"?`)) {
+                            deleteProjectMutation.mutate(project.id);
+                          }
+                        }}
+                        className="p-1 text-muted-foreground hover:text-rose-500 transition-colors"
+                        title={`Delete ${project.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="flex items-center gap-1 group-hover:text-primary transition-colors">
+                        Open Dashboard <ExternalLink className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
                   </div>
                 </Link>
               ))}
@@ -288,11 +337,52 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-      </div>
-    );
-  }
 
-  // --- RENDERING PROJECT DASHBOARD VIEW ---
+      {/* CREATE PROJECT DIALOG */}
+      <Dialog isOpen={isNewProjectOpen} onClose={() => setIsNewProjectOpen(false)} title="Create New Project">
+        <form onSubmit={handleProjectSubmit(handleCreateProjectSubmit)} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Project Name</label>
+            <input
+              type="text"
+              placeholder="e.g. Acme Website, Mobile App"
+              {...projectRegister('name')}
+              className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
+            />
+            {projectErrors.name && <p className="text-xs text-rose-500 mt-1">{projectErrors.name.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Description</label>
+            <textarea
+              placeholder="Explain the purpose of this project..."
+              {...projectRegister('description')}
+              rows={3}
+              className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground resize-none"
+            />
+          </div>
+          <div className="flex gap-3 justify-end pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={() => setIsNewProjectOpen(false)}
+              className="px-4 py-2 text-sm font-medium hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createProjectMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 rounded-xl transition-opacity disabled:opacity-55"
+            >
+              {createProjectMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>Create Project</span>
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
   return (
     <div className="space-y-8">
       {/* Project Header */}
@@ -304,7 +394,7 @@ export default function Dashboard() {
 
         <button
           onClick={() => {
-            reset();
+            resetTask();
             setIsNewTaskOpen(true);
           }}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:opacity-90 transition-opacity self-start md:self-auto"
@@ -631,23 +721,23 @@ export default function Dashboard() {
 
       {/* CREATE TASK DIALOG */}
       <Dialog isOpen={isNewTaskOpen} onClose={() => setIsNewTaskOpen(false)} title="Create New Task">
-        <form onSubmit={handleSubmit(handleCreateTaskSubmit)} className="space-y-4">
+        <form onSubmit={handleTaskSubmit(handleCreateTaskSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Task Title</label>
             <input
               type="text"
               placeholder="e.g. Design homepage hero section"
-              {...register('title')}
+              {...taskRegister('title')}
               className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
             />
-            {errors.title && <p className="text-xs text-rose-500 mt-1">{errors.title.message}</p>}
+            {taskErrors.title && <p className="text-xs text-rose-500 mt-1">{taskErrors.title.message}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Description</label>
             <textarea
               placeholder="Provide context and requirements..."
-              {...register('description')}
+              {...taskRegister('description')}
               rows={3}
               className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground resize-none"
             />
@@ -657,7 +747,7 @@ export default function Dashboard() {
             <div>
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Status</label>
               <select
-                {...register('status')}
+                {...taskRegister('status')}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
               >
                 <option value="backlog">Backlog</option>
@@ -670,7 +760,7 @@ export default function Dashboard() {
             <div>
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Priority</label>
               <select
-                {...register('priority')}
+                {...taskRegister('priority')}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
               >
                 <option value="low">Low</option>
@@ -685,7 +775,7 @@ export default function Dashboard() {
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Due Date</label>
               <input
                 type="date"
-                {...register('due_date')}
+                {...taskRegister('due_date')}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
               />
             </div>
@@ -693,7 +783,7 @@ export default function Dashboard() {
             <div>
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Assignee</label>
               <select
-                {...register('assignee_id')}
+                {...taskRegister('assignee_id')}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
               >
                 <option value="">Unassigned</option>
@@ -727,21 +817,21 @@ export default function Dashboard() {
 
       {/* EDIT TASK DIALOG */}
       <Dialog isOpen={!!editingTask} onClose={() => setEditingTask(null)} title="Edit Task Properties">
-        <form onSubmit={handleSubmit(handleEditTaskSubmit)} className="space-y-4">
+        <form onSubmit={handleTaskSubmit(handleEditTaskSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Task Title</label>
             <input
               type="text"
-              {...register('title')}
+              {...taskRegister('title')}
               className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
             />
-            {errors.title && <p className="text-xs text-rose-500 mt-1">{errors.title.message}</p>}
+            {taskErrors.title && <p className="text-xs text-rose-500 mt-1">{taskErrors.title.message}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Description</label>
             <textarea
-              {...register('description')}
+              {...taskRegister('description')}
               rows={3}
               className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground resize-none"
             />
@@ -751,7 +841,7 @@ export default function Dashboard() {
             <div>
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Status</label>
               <select
-                {...register('status')}
+                {...taskRegister('status')}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
               >
                 <option value="backlog">Backlog</option>
@@ -764,7 +854,7 @@ export default function Dashboard() {
             <div>
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Priority</label>
               <select
-                {...register('priority')}
+                {...taskRegister('priority')}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
               >
                 <option value="low">Low</option>
@@ -779,7 +869,7 @@ export default function Dashboard() {
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Due Date</label>
               <input
                 type="date"
-                {...register('due_date')}
+                {...taskRegister('due_date')}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
               />
             </div>
@@ -787,7 +877,7 @@ export default function Dashboard() {
             <div>
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Assignee</label>
               <select
-                {...register('assignee_id')}
+                {...taskRegister('assignee_id')}
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-foreground"
               >
                 <option value="">Unassigned</option>
@@ -818,6 +908,7 @@ export default function Dashboard() {
           </div>
         </form>
       </Dialog>
+
     </div>
   );
 }

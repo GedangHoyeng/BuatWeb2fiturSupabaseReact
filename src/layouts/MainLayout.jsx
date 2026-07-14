@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, Outlet, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
@@ -10,7 +10,6 @@ import Dialog from '../components/ui/Dialog';
 import {
   HardDrive,
   Folder,
-  Plus,
   User,
   Settings,
   LogOut,
@@ -33,9 +32,23 @@ export default function MainLayout() {
   const { theme, toggleTheme } = useTheme();
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const createProjectMutation = useCreateProject();
+
   const { projectId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const currentProject = useMemo(
+    () => projects?.find((p) => p.id === projectId),
+    [projects, projectId]
+  );
+
+  const breadcrumbLabel = useMemo(() => {
+    if (location.pathname === '/') return 'All Projects';
+    if (location.pathname.startsWith('/project')) return currentProject?.name || 'Project Dashboard';
+    if (location.pathname === '/profile') return 'Profile';
+    if (location.pathname === '/settings') return 'Settings';
+    return '';
+  }, [location.pathname, currentProject]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
@@ -88,7 +101,7 @@ export default function MainLayout() {
           </Link>
         </div>
 
-        {/* Sidebar Navigation */}
+          {/* Sidebar Navigation */}
         <nav className="flex-1 py-6 px-4 space-y-7 overflow-y-auto">
           {/* Main Pages */}
           <div className="space-y-1">
@@ -101,16 +114,7 @@ export default function MainLayout() {
 
           {/* Projects List */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between px-3">
-              <span className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">Projects</span>
-              <button
-                onClick={() => setIsNewProjectOpen(true)}
-                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
-                title="Create Project"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
+            <span className="px-3 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Projects</span>
 
             {projectsLoading ? (
               <div className="flex items-center justify-center py-4">
@@ -124,14 +128,14 @@ export default function MainLayout() {
                     to={`/project/${project.id}`}
                     className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeProjectClass(project.id)}`}
                   >
-                    <Folder className="w-4 h-4 flex-shrink-0" />
+                    <Folder className="w-4 h-4" />
                     <span className="truncate">{project.name}</span>
                   </Link>
                 ))}
               </div>
             ) : (
               <div className="text-xs text-muted-foreground/60 px-3 py-2">
-                No projects. Click '+' to create.
+                No projects yet.
               </div>
             )}
           </div>
@@ -193,18 +197,7 @@ export default function MainLayout() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between px-3">
-                  <span className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">Projects</span>
-                  <button
-                    onClick={() => {
-                      setIsNewProjectOpen(true);
-                      setIsSidebarOpen(false);
-                    }}
-                    className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
+                <span className="px-3 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Projects</span>
 
                 {projectsLoading ? (
                   <div className="flex items-center justify-center py-4">
@@ -212,21 +205,21 @@ export default function MainLayout() {
                   </div>
                 ) : projects && projects.length > 0 ? (
                   <div className="space-y-1">
-                    {projects.map((project) => (
-                      <Link
-                        key={project.id}
-                        to={`/project/${project.id}`}
-                        className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeProjectClass(project.id)}`}
-                        onClick={() => setIsSidebarOpen(false)}
-                      >
-                        <Folder className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">{project.name}</span>
-                      </Link>
-                    ))}
+                {projects.map((project) => (
+                  <Link
+                    key={project.id}
+                    to={`/project/${project.id}`}
+                    className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeProjectClass(project.id)}`}
+                    onClick={() => setIsSidebarOpen(false)}
+                  >
+                    <Folder className="w-4 h-4" />
+                    <span className="truncate">{project.name}</span>
+                  </Link>
+                ))}
                   </div>
                 ) : (
                   <div className="text-xs text-muted-foreground/60 px-3 py-2">
-                    No projects available.
+                    No projects yet.
                   </div>
                 )}
               </div>
@@ -274,12 +267,7 @@ export default function MainLayout() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>SupaFlow</span>
               <ChevronRight className="w-4 h-4 text-border" />
-              <span className="text-foreground font-medium">
-                {location.pathname === '/' && 'All Projects'}
-                {location.pathname.startsWith('/project') && 'Project Dashboard'}
-                {location.pathname === '/profile' && 'Profile'}
-                {location.pathname === '/settings' && 'Settings'}
-              </span>
+              <span className="text-foreground font-medium">{breadcrumbLabel}</span>
             </div>
           </div>
 

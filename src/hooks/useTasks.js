@@ -107,6 +107,22 @@ export function useUpdateTask(projectId) {
   });
 }
 
+export function useDeleteProject() {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: (projectId) => taskService.deleteProject(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      showToast('Project deleted!', 'success');
+    },
+    onError: (error) => {
+      showToast(error.message || 'Failed to delete project', 'error');
+    },
+  });
+}
+
 export function useDeleteTask(projectId) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
